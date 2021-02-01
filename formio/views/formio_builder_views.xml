@@ -22,6 +22,7 @@ See LICENSE file for full licensing details. -->
                 <field name="public_url" optional="hide"/>
                 <field name="formio_version_id"/>
                 <field name="user_id" optional="hide"/>
+                <field name="partner_ids" optional="hide" />
                 <field name="parent_id" optional="hide"/>
                 <field name="write_date" optional="hide"/>
                 <field name="create_date" optional="hide"/>
@@ -199,6 +200,9 @@ See LICENSE file for full licensing details. -->
                             </div>
                             <group>
                                 <field name="allow_force_update_state_group_ids" />
+                            </group>
+                            <group>
+                                <field name="partner_ids" />
                             </group>
                             <group name="actions_settings" string="Actions">
                                 <field name="form_allow_copy" groups="formio.group_formio_admin" />

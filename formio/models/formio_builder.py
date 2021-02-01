@@ -79,6 +79,9 @@ class Builder(models.Model):
     version = fields.Integer("Version", required=True, readonly=True, default=1)
     version_comment = fields.Text("Version Comment")
     user_id = fields.Many2one('res.users', string='Assigned user', track_visibility='onchange')
+    partner_ids = fields.Many2many('res.partner', string='Exclusive to partners',
+                                   help='Give access only to users related to this partner (either linked directly to the partner or to its children). If left empty, this restriction doesn\'t apply.')
+    allowed_user_ids = fields.Many2many('res.users', compute='_compute_allowed_user_ids', store=True)
     forms = fields.One2many('formio.form', 'builder_id', string='Forms')
     portal = fields.Boolean("Portal", track_visibility='onchange', help="Form is accessible by assigned portal user")
     portal_submit_done_url = fields.Char(
@@ -99,7 +102,8 @@ class Builder(models.Model):
         - Relative URL is also supported e.g. /web/login
         """
     )
-    public_access_interval_number = fields.Integer(default=30, track_visibility='onchange', help="Public access to submitted Form shall be rejected after expiration of the configured time interval.")
+    public_access_interval_number = fields.Integer(
+        default=30, track_visibility='onchange', help="Public access to submitted Form shall be rejected after expiration of the configured time interval.")
     public_access_interval_type = fields.Selection(list(_interval_selection.items()), default='minutes', track_visibility='onchange')
     view_as_html = fields.Boolean("View as HTML", track_visibility='onchange', help="View submission as a HTML view instead of disabled webform.")
     show_form_title = fields.Boolean("Show Form Title", track_visibility='onchange', help="Show Form Title in the Form header.", default=True)
@@ -122,7 +126,8 @@ class Builder(models.Model):
         string='Component Partner Add to Followers', track_visibility='onchange', help='Add determined partner to followers of the Form.')
     component_partner_activity_user_id = fields.Many2one('res.users', tracking=True)
     form_allow_copy = fields.Boolean(string='Allow Copies', help='Allow copying form submissions.', tracking=True, default=True)
-    form_copy_to_current = fields.Boolean(string='Copy To Current', help='When copying a form, always link it to the current version of the builder instead of the original builder.', tracking=True, default=True)
+    form_copy_to_current = fields.Boolean(
+        string='Copy To Current', help='When copying a form, always link it to the current version of the builder instead of the original builder.', tracking=True, default=True)
 
     def _states_selection(self):
         return STATES
@@ -166,7 +171,7 @@ class Builder(models.Model):
         res = self.search([
             ("name", "=", self.name),
             ("state", "=", STATE_CURRENT)
-            ])
+        ])
         if len(res) > 1:
             msg = _('Only one Form Builder with name "{name}" can be in state Current.').format(
                 name=self.name)
@@ -198,7 +203,7 @@ class Builder(models.Model):
 
         json.loads(data) refuses identifies with single quotes.Use
         ast.literal_eval() instead.
-        
+
         :param str schema: schema string
         :return str schema: schema as dictionary
         """
@@ -247,6 +252,18 @@ class Builder(models.Model):
             else:
                 r.display_name_full = _("{title} (state: {state} - version: {version})").format(
                     title=r.title, state=r.display_state, version=r.version)
+
+    @api.depends('partner_ids')
+    def _compute_allowed_user_ids(self):
+        for r in self:
+            user_domain = []
+
+            if r.partner_ids:
+                partner_ids = r.partner_ids.mapped('commercial_partner_id.id') + r.partner_ids.mapped('id')
+                user_domain = [('partner_id', 'in', partner_ids)]
+
+            user_ids = self.env['res.users'].search(user_domain)
+            r.allowed_user_ids = [(6, 0, user_ids.ids)]
 
     @api.depends('public')
     def _compute_public_url(self):
